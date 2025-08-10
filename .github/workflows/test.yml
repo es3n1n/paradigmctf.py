@@ -93,7 +93,7 @@ jobs:
     - name: Run tests (k8s)
       if: ${{ !cancelled() && !failure() && matrix.backend == 'k8s' }}
       run: |
-        nohup kubectl port-forward svc/anvil-proxy 8545:8545 --address 127.0.0.1 \
+        nohup kubectl port-forward svc/eth 8545:8545 --address 127.0.0.1 \
               > /tmp/port-forward.log 2>&1 &
         PF_PID=$!
         trap "echo 'Stopping port-forward'; kill $PF_PID" EXIT
