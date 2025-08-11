@@ -25,8 +25,10 @@ class NCBaseLauncher(TeamInstanceLauncherBase):
         self,
         project_location: str = DEFAULT_PROJECT_LOCATION,
         provider: TeamProvider = get_team_provider(),  # noqa: B008
+        dynamic_fields: list[str] | None = None,
     ) -> None:
-        super().__init__(provider.get_team(), project_location)
+        super().__init__(project_location=project_location, dynamic_fields=dynamic_fields)
+        self._team = provider.get_team()
         self._actions = [
             Action(name='launch new instance', handler=self.cli_launch_instance),
             Action(name='instance info', handler=self.cli_instance_info),
@@ -53,13 +55,13 @@ class NCBaseLauncher(TeamInstanceLauncherBase):
             sys.exit(1)
 
     def cli_launch_instance(self) -> int:
-        return self._show_instance(self.launch_instance())
+        return self._show_instance(self.launch_instance(self._team))
 
     def cli_instance_info(self) -> int:
-        return self._show_instance(self.instance_info())
+        return self._show_instance(self.instance_info(self._team))
 
     def cli_kill_instance(self) -> int:
-        return int(not self.kill_instance())
+        return int(not self.kill_instance(self._team))
 
     def _report_status(self, status: str) -> None:
         print(status, flush=True)
@@ -83,10 +85,18 @@ class NCPwnLauncher(PwnTeamInstanceLauncherBase, NCBaseLauncher):
         self,
         project_location: str = DEFAULT_PROJECT_LOCATION,
         provider: TeamProvider = get_team_provider(),  # noqa: B008
+        dynamic_fields: list[str] | None = None,
     ) -> None:
-        super().__init__(project_location, provider)
+        super().__init__(project_location, provider, dynamic_fields=dynamic_fields)
         self._actions.append(Action(name='get flag', handler=self.cli_get_flag))
 
     def cli_get_flag(self) -> int:
-        print(self.get_flag(), flush=True)
+        dynamic_fields: dict[str, str] = {}
+        for dynamic_field in self.dynamic_fields:
+            try:
+                dynamic_fields[dynamic_field] = input(f'{dynamic_field}? ')
+            except (EOFError, KeyboardInterrupt):
+                return 1
+
+        print(self.get_flag(dynamic_fields, self._team), flush=True)
         return 0

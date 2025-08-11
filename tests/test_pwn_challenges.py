@@ -5,7 +5,7 @@ from . import EXTRA_METHODS_PWN, HELLO_PWN, compile_src_for
 
 def test_challenge_hello() -> None:
     data = HELLO_PWN.launch(kill_if_exists=True)
-    assert HELLO_PWN.get_pwn_flag() is None
+    assert HELLO_PWN.get_pwn_flag('world') is None
 
     contracts = compile_src_for('hello', 'Hello.sol', solc_version='0.8.27')
     conn = Connection(data['http_endpoint'])
@@ -15,7 +15,8 @@ def test_challenge_hello() -> None:
     hello = conn.contract(signer=acc, address=data['contracts']['Hello'], abi=hello_abi, bytecode=hello_bytecode)
     hello.functions.solve().send_transaction()
 
-    assert HELLO_PWN.get_pwn_flag() == 'cr3{paradigm_ctf_hello_world}'
+    assert HELLO_PWN.get_pwn_flag('not world') is None
+    assert HELLO_PWN.get_pwn_flag('world') == 'cr3{paradigm_ctf_hello_world}'
 
 
 def test_extra_methods() -> None:

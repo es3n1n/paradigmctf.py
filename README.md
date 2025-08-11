@@ -20,6 +20,7 @@ Slightly modified/refactored/fixed version of [paradigmctf.py](https://github.co
 - Added CTFd integration
 - Migrated to uv
 - Added API challenge launcher mode, so you can integrate instance spawning in your own CTF platform
+- Added support for challenges with "dynamic" fields, which will be asked for user when requesting the flag
 - Other improvements, fixes
 
 ### Untested features

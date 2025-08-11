@@ -34,7 +34,6 @@ services:
     depends_on:
       - ctf-server-orchestrator
   blockchain-challenge-hello-api:
-    build: hello
     image: paradigmctf-chal-hello:latest
     container_name: blockchain-infra-challenge-hello-api
     restart: unless-stopped
