@@ -70,12 +70,15 @@ jobs:
       run: uv sync --all-extras --dev
 
     - name: Up (docker)
-      run: docker compose -f compose.yml up -d --build --force-recreate
+      run: |
+        docker compose -f compose.yml build ctf-server-orchestrator
+        docker compose -f compose.yml up -d --build --force-recreate --pull missing --wait
       if: matrix.backend == 'docker'
 
     - name: Build images (k8s)
       if: matrix.backend == 'k8s'
       run: |
+        docker compose -f compose.yml build ctf-server-orchestrator
         docker compose -f compose.yml build
         docker images --format '{{.Repository}}:{{.Tag}}' \
           | grep -E 'paradigmctf-chal-|es3n1n' \
