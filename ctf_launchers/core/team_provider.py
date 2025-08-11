@@ -15,7 +15,7 @@ CTFD_INTERNAL_URL: str = environ.get('CTFD_INTERNAL_URL', 'https://cr3c.tf/').rs
 
 class TeamProvider(abc.ABC):
     @abc.abstractmethod
-    def get_team(self) -> str | None:
+    def get_team(self) -> str:
         pass
 
 
@@ -23,16 +23,17 @@ class CTFdTeamProvider(TeamProvider):
     def __init__(self) -> None:
         pass
 
-    def get_team(self) -> str | None:
+    def get_team(self) -> str:
         try:
             token = input(f'token? you can get one at {CTFD_PUBLIC_URL}/settings ')
-        except EOFError:
-            return None
+        except EOFError as err:
+            msg = 'no token provided!'
+            raise TeamProviderError(msg) from err
 
         team = self.get_team_by_ctfd_token(token)
         if not team:
-            print('invalid token!')
-            return None
+            msg = 'failed to find team'
+            raise TeamProviderError(msg)
 
         return str(team)
 
@@ -62,10 +63,10 @@ class CTFdTeamProvider(TeamProvider):
 
 class LocalTeamProvider(TeamProvider):
     def __init__(self, team_id: str) -> None:
-        self.__team_id = team_id
+        self._team_id = team_id
 
-    def get_team(self) -> str | None:
-        return self.__team_id
+    def get_team(self) -> str:
+        return self._team_id
 
 
 def get_team_provider() -> TeamProvider:

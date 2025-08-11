@@ -1,9 +1,9 @@
 **/__pycache__
 *.pyc
-*.lock
-.venv*/**
-.idea/**
-**/Dockerfile
-**/compose.yml
-compose/
-examples/
+*
+!foundry/**
+!ctf_solvers/**
+!ctf_server/**
+!ctf_launchers/**
+!pyproject.toml
+!uv.lock

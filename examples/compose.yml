@@ -33,3 +33,20 @@ services:
       - "ENV=local"
     depends_on:
       - ctf-server-orchestrator
+  blockchain-challenge-hello-api:
+    build: hello
+    image: paradigmctf-chal-hello:latest
+    container_name: blockchain-infra-challenge-hello-api
+    restart: unless-stopped
+    ports:
+      - "31339:1337"
+    networks:
+      - default
+      - ctf_network
+    environment:
+      - "CHALLENGE=hello-api"
+      - "FLAG=cr3{paradigm_ctf_hello_api}"
+      - "PUBLIC_HOST=http://127.0.0.1:8545"
+      - "LAUNCHER_MODE=api"
+    depends_on:
+      - ctf-server-orchestrator

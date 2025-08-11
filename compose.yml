@@ -3,17 +3,51 @@ include:
   - compose/base.yml
   - examples/compose.yml
 services:
+  database:
+    restart: always
+    container_name: blockchain-infra-database
+    image: redis/redis-stack:latest
+    environment:
+      - REDIS_ARGS=--save 60 1
+    networks:
+      ctf_network:
+        aliases:
+          - database
+    volumes:
+      - database:/data
+  ctf-server-anvil-proxy:
+    restart: unless-stopped
+    container_name: blockchain-infra-anvil-proxy
+    image: ghcr.io/es3n1n/paradigmctf.py:latest
+    build: .
+    command: uvicorn ctf_server.anvil_proxy:app --host 0.0.0.0 --port 8545 --workers 3
+    ports:
+      # In production, you might want to put this behind a reverse proxy like Nginx or Caddy
+      - "8545:8545"
+    environment:
+      - DATABASE=redis
+      - REDIS_URL=redis://database:6379/0
+    networks:
+      ctf_network:
+        aliases:
+          - anvil-proxy
+    depends_on:
+      - database
+    healthcheck:
+      test: [ "CMD-SHELL", "curl -fs http://127.0.0.1:8545/ || exit 1" ]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
   ctf-server-orchestrator:
     restart: unless-stopped
     container_name: blockchain-infra-orchestrator
     image: ghcr.io/es3n1n/paradigmctf.py:latest
     build: .
     user: root
-    command: uvicorn ctf_server:orchestrator --host 0.0.0.0 --port 7283 --workers 11
+    command: uvicorn ctf_server.orchestrator:app --host 0.0.0.0 --port 7283 --workers 11
     volumes:
       - "/var/run/docker.sock:/var/run/docker.sock"
-    ports:
-      - "7283:7283"
     environment:
       - BACKEND=docker
       - DATABASE=redis

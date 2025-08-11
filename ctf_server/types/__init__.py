@@ -14,7 +14,7 @@ DEFAULT_ACCOUNTS = 10
 DEFAULT_BALANCE = 1000
 DEFAULT_MNEMONIC = 'test test test test test test test test test test test junk'
 
-PUBLIC_HOST = os.getenv('PUBLIC_HOST', 'http://127.0.0.1:8545')
+PUBLIC_HOST = os.getenv('PUBLIC_HOST', 'http://127.0.0.1:8545').rstrip('/')
 
 
 class LaunchAnvilInstanceArgs(TypedDict):

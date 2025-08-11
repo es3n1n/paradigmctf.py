@@ -4,9 +4,8 @@ from json import loads
 
 from web3 import Web3
 
+from ctf_launchers.types import ChallengeContract
 from foundry.anvil import anvil_auto_impersonate_account
-
-from .types import ChallengeContract
 
 
 class DeployerError(Exception):

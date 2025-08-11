@@ -1,33 +1,3 @@
-services:
-  database:
-    restart: always
-    container_name: blockchain-infra-database
-    image: redis/redis-stack:latest
-    environment:
-      - REDIS_ARGS=--save 60 1
-    networks:
-      ctf_network:
-        aliases:
-          - database
-    volumes:
-      - database:/data
-  ctf-server-anvil-proxy:
-    restart: unless-stopped
-    container_name: blockchain-infra-anvil-proxy
-    image: ghcr.io/es3n1n/paradigmctf.py:latest
-    build: ../
-    command: uvicorn ctf_server:anvil_proxy --host 0.0.0.0 --port 8545 --workers 3
-    ports:
-      - "8545:8545"
-    environment:
-      - DATABASE=redis
-      - REDIS_URL=redis://database:6379/0
-    networks:
-      ctf_network:
-        aliases:
-          - anvil-proxy
-    depends_on:
-      - database
 volumes:
   database:
     driver: local

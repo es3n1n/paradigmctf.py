@@ -19,13 +19,17 @@ Slightly modified/refactored/fixed version of [paradigmctf.py](https://github.co
 - Some parts of solvers were rewritten
 - Added CTFd integration
 - Migrated to uv
+- Added API challenge launcher mode, so you can integrate instance spawning in your own CTF platform
 - Other improvements, fixes
 
 ### Untested features
 
-- KOTH challenges
-- KOTH solvers
+- Daemons
 - SQLite database
+
+### Removed features (because I don't have any use for them yet)
+
+- KOTH challenges/solvers
 
 ### Example deployments
 
