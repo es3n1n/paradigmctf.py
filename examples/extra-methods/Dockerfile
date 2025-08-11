@@ -14,6 +14,7 @@ COPY --from=es3n1n/pow-proxy:latest /app/main /app/pow
 COPY --chown=user:user . /challenge
 
 COPY entrypoint.sh /challenge/entrypoint.sh
+RUN chmod +x /challenge/entrypoint.sh
 
 COPY --from=builder --chown=user:user /artifacts /artifacts
 RUN chmod +x /challenge/challenge.py
