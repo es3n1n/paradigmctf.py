@@ -15,9 +15,9 @@ services:
     restart: unless-stopped
     container_name: blockchain-infra-anvil-proxy
     image: ghcr.io/es3n1n/paradigmctf.py:latest
-    build: ../
-    command: uvicorn ctf_server:anvil_proxy --host 0.0.0.0 --port 8545 --workers 3
+    command: uvicorn ctf_server.anvil_proxy:app --host 0.0.0.0 --port 8545 --workers 3
     ports:
+      # In production, you might want to put this behind a reverse proxy like Nginx or Caddy
       - "8545:8545"
     environment:
       - DATABASE=redis

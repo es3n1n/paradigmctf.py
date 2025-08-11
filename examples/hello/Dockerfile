@@ -12,10 +12,12 @@ FROM ghcr.io/es3n1n/paradigmctf.py:latest
 
 COPY --from=es3n1n/pow-proxy:latest /app/main /app/pow
 COPY --chown=user:user . /challenge
-COPY --from=builder --chown=user:user /artifacts /artifacts
 
+COPY entrypoint.sh /challenge/entrypoint.sh
+
+COPY --from=builder --chown=user:user /artifacts /artifacts
 RUN chmod +x /challenge/challenge.py
 
-ENV LISTEN_PORT=1337 FORWARD_PORT=1338 POW_DIFFICULTY=0 CONN_LIFETIME_MS=30000
-CMD /app/pow \
-    & socat TCP-LISTEN:1338,reuseaddr,fork exec:"/challenge/challenge.py"
+# To enable POW, set POW_DIFFICULTY to a value greater than 0
+ENV LISTEN_PORT=1337 FORWARD_PORT=1338 CONN_LIFETIME_MS=30000
+CMD /challenge/entrypoint.sh

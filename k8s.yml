@@ -123,9 +123,11 @@ metadata:
 spec:
   selector:
     app: ctf-server
+  # Make sure to not expose this port publicly in production!
   ports:
     - protocol: TCP
       port: 7283
+  type: ClusterIP
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -174,6 +176,7 @@ metadata:
 spec:
   selector:
     app: anvil-proxy
+  # You might want to put this behind a reverse proxy like Nginx or Caddy in production
   ports:
     - protocol: TCP
       port: 8545
