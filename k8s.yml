@@ -94,7 +94,7 @@ spec:
       containers:
       - name: orchestrator
         image: ghcr.io/es3n1n/paradigmctf.py:latest
-        command: ["uvicorn", "--host", "0.0.0.0", "--port", "7283", "ctf_server:orchestrator", "--workers", "3"]
+        command: ["uvicorn", "--host", "0.0.0.0", "--port", "7283", "ctf_server.orchestrator:app", "--workers", "3"]
         env:
         - name: BACKEND
           value: kubernetes
@@ -149,7 +149,7 @@ spec:
       containers:
       - name: anvil-proxy
         image: ghcr.io/es3n1n/paradigmctf.py:latest
-        command: ["uvicorn", "--host", "0.0.0.0", "--port", "8545", "--workers", "3", "ctf_server:anvil_proxy"]
+        command: ["uvicorn", "--host", "0.0.0.0", "--port", "8545", "--workers", "3", "ctf_server.anvil_proxy:app"]
         env:
         - name: DATABASE
           value: redis

@@ -70,7 +70,7 @@ jobs:
       run: uv sync --all-extras --dev
 
     - name: Up (docker)
-      run: docker compose -f compose.yml up -d --build
+      run: docker compose -f compose.yml up -d --build --force-recreate
       if: matrix.backend == 'docker'
 
     - name: Build images (k8s)
