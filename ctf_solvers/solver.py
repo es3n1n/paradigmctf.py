@@ -47,9 +47,11 @@ def kill_instance(host: str = DEFAULT_HOST, port: int = DEFAULT_PORT) -> None:
             r.recvall()
 
 
-def get_pwn_flag(host: str = DEFAULT_HOST, port: int = DEFAULT_PORT) -> str | None:
+def get_pwn_flag(host: str = DEFAULT_HOST, port: int = DEFAULT_PORT, *dynamic_fields: str) -> str | None:
     with TicketedRemote(host, port) as r:
         r.sendlineafter(b'?', b'4')
+        for field in dynamic_fields:
+            r.sendlineafter(b'?', field.encode())
         with context.quiet:
             flag = r.recvline().decode().strip()
 

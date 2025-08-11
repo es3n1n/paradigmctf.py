@@ -31,7 +31,7 @@ def test_api_mode() -> None:
     for k in ('player_private_key', 'contracts', 'rpc_endpoints'):
         assert new_data[k] == data[k], f'{k} mismatch'
 
-    response = session.get(f'http://localhost:{PORT}/v1/pwn/flag', params={'team_id': TEAM})
+    response = session.get(f'http://localhost:{PORT}/v1/pwn/flag', params={'team_id': TEAM, 'hello': 'world'})
     assert response.status_code == 400  # noqa: PLR2004
     flag_json = response.json()
     assert 'detail' in flag_json
@@ -46,7 +46,14 @@ def test_api_mode() -> None:
         signer=acc, address=data['contracts']['Hello']['address'], abi=hello_abi, bytecode=hello_bytecode
     )
     hello.functions.solve().send_transaction()
-    response = session.get(f'http://localhost:{PORT}/v1/pwn/flag', params={'team_id': TEAM})
+
+    # with invalid dynamic field
+    response = session.get(f'http://localhost:{PORT}/v1/pwn/flag', params={'team_id': TEAM, 'hello': 'not world'})
+    assert response.status_code == 400, response.text  # noqa: PLR2004
+    assert 'flag' not in response.json()
+
+    # with valid dynamic field
+    response = session.get(f'http://localhost:{PORT}/v1/pwn/flag', params={'team_id': TEAM, 'hello': 'world'})
     assert response.status_code == 200  # noqa: PLR2004
     flag_json = response.json()
     assert 'flag' in flag_json

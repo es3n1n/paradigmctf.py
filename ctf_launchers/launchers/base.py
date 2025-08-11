@@ -82,8 +82,12 @@ class LaunchedInstance(BaseModel):
 
 
 class TeamInstanceLauncherBase:
-    def __init__(self, team: str, project_location: str = DEFAULT_PROJECT_LOCATION) -> None:
-        self.team: str = team
+    def __init__(
+        self,
+        project_location: str = DEFAULT_PROJECT_LOCATION,
+        dynamic_fields: list[str] | None = None,
+    ) -> None:
+        self.dynamic_fields = dynamic_fields if dynamic_fields else []
         self.project_location = project_location
         self._mnemonic: str | None = None
 
@@ -113,25 +117,25 @@ class TeamInstanceLauncherBase:
             kwargs['mnemonic'] = self.mnemonic
         return LaunchAnvilInstanceArgs(**kwargs)  # type: ignore[typeddict-item]
 
-    def get_instance_id(self) -> str:
-        return f'blockchain-{CHALLENGE}-{self.team}'.lower()
+    def _get_instance_id(self, team: str) -> str:
+        return f'blockchain-{CHALLENGE}-{team}'.lower()
 
     # TODO(es3n1n, 28.03.24): create a type alias for metadata and replace it everywhere
-    def update_metadata(self, new_metadata: dict[str, str | list[ChallengeContract]]) -> bool:
+    def update_metadata(self, new_metadata: dict[str, str | list[ChallengeContract]], team: str) -> bool:
         resp = requests.post(
-            f'{ORCHESTRATOR_HOST}/instances/{self.get_instance_id()}/metadata',
+            f'{ORCHESTRATOR_HOST}/instances/{self._get_instance_id(team)}/metadata',
             json=new_metadata,
             timeout=60,
         )
         body = resp.json()
         return bool(body.get('ok'))
 
-    def launch_instance(self) -> LaunchedInstance:
+    def launch_instance(self, team: str) -> LaunchedInstance:
         self._report_status('creating private blockchain...')
         body = requests.post(
             f'{ORCHESTRATOR_HOST}/instances',
             json=CreateInstanceRequest(
-                instance_id=self.get_instance_id(),
+                instance_id=self._get_instance_id(team),
                 timeout=TIMEOUT,
                 anvil_instances=self.get_anvil_instances(),
                 daemon_instances=self.get_daemon_instances(),
@@ -146,7 +150,7 @@ class TeamInstanceLauncherBase:
         self._report_status('deploying challenge...')
         challenge_contracts = self.deploy(user_data, self.mnemonic)
 
-        if not self.update_metadata({'mnemonic': self.mnemonic, 'challenge_contracts': challenge_contracts}):
+        if not self.update_metadata({'mnemonic': self.mnemonic, 'challenge_contracts': challenge_contracts}, team):
             msg = 'unable to update metadata'
             raise NonSensitiveError(msg)
 
@@ -157,8 +161,8 @@ class TeamInstanceLauncherBase:
             mnemonic=self.mnemonic,
         )
 
-    def instance_info(self) -> LaunchedInstance:
-        body = requests.get(f'{ORCHESTRATOR_HOST}/instances/{self.get_instance_id()}', timeout=5).json()
+    def instance_info(self, team: str) -> LaunchedInstance:
+        body = requests.get(f'{ORCHESTRATOR_HOST}/instances/{self._get_instance_id(team)}', timeout=5).json()
         if not body['ok']:
             raise NonSensitiveError(body['message'])
 
@@ -168,8 +172,8 @@ class TeamInstanceLauncherBase:
             challenge_contracts=body['data'].get('metadata', {}).get('challenge_contracts', []),
         )
 
-    def kill_instance(self) -> bool:
-        resp = requests.delete(f'{ORCHESTRATOR_HOST}/instances/{self.get_instance_id()}', timeout=5)
+    def kill_instance(self, team: str) -> bool:
+        resp = requests.delete(f'{ORCHESTRATOR_HOST}/instances/{self._get_instance_id(team)}', timeout=5)
         body = resp.json()
         self._report_status(body.get('message', 'no message'))
         return True
@@ -190,21 +194,23 @@ class TeamInstanceLauncherBase:
 
 
 class PwnTeamInstanceLauncherBase(TeamInstanceLauncherBase):
-    def get_flag(self) -> str:
-        instance_body = requests.get(f'{ORCHESTRATOR_HOST}/instances/{self.get_instance_id()}', timeout=5).json()
+    def get_flag(self, dynamic_fields: dict[str, str], team: str) -> str:
+        instance_body = requests.get(f'{ORCHESTRATOR_HOST}/instances/{self._get_instance_id(team)}', timeout=5).json()
         if not instance_body['ok']:
             msg = 'are you sure instance is running?'
             raise NonSensitiveError(msg)
 
         user_data = instance_body['data']
         web3 = get_privileged_web3(user_data, 'main')
-        if not self.is_solved(web3, user_data['metadata']['challenge_contracts']):
+        if not self.is_solved(web3, user_data['metadata']['challenge_contracts'], dynamic_fields, team):
             msg = 'are you sure you solved it?'
             raise NonSensitiveError(msg)
 
         return os.getenv('FLAG', 'cr3{no_flag}')
 
-    def is_contract_solved(self, web3: Web3, contract: ChallengeContract) -> bool:
+    def is_contract_solved(self, web3: Web3, contract: ChallengeContract, _: dict[str, str], __: str) -> bool:
+        # _ is dynamic_fields, which are not used in this method
+        # __ is team, which is not used in this method
         (result,) = abi.decode(
             ['bool'],
             web3.eth.call(
@@ -216,8 +222,10 @@ class PwnTeamInstanceLauncherBase(TeamInstanceLauncherBase):
         )
         return result
 
-    def is_solved(self, web3: Web3, contracts: list[ChallengeContract]) -> bool:
-        return all(self.is_contract_solved(web3, contract) for contract in contracts)
+    def is_solved(
+        self, web3: Web3, contracts: list[ChallengeContract], dynamic_fields: dict[str, str], team: str
+    ) -> bool:
+        return all(self.is_contract_solved(web3, contract, dynamic_fields, team) for contract in contracts)
 
 
 class CurrentChallengeContainer:

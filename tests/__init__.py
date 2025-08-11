@@ -38,8 +38,8 @@ class Instance:
         self.kill()
         return launch_instance(self.host, self.port)
 
-    def get_pwn_flag(self) -> str | None:
-        return get_pwn_flag(self.host, self.port)
+    def get_pwn_flag(self, *dynamic_fields: str) -> str | None:
+        return get_pwn_flag(self.host, self.port, *dynamic_fields)
 
 
 HELLO_PWN = Instance(port=31337)

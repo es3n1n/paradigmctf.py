@@ -1,7 +1,6 @@
 import inspect
 import os
 from pathlib import Path
-from typing import cast
 
 import uvicorn
 from fastapi import APIRouter, FastAPI
@@ -32,20 +31,18 @@ class FlagResponse(BaseModel):
     flag: str
 
 
-class APIBaseLauncher:
+class APIBaseLauncher(TeamInstanceLauncherBase):
     def __init__(
         self,
-        base: type[TeamInstanceLauncherBase] = TeamInstanceLauncherBase,
         project_location: str = DEFAULT_PROJECT_LOCATION,
+        dynamic_fields: list[str] | None = None,
     ) -> None:
-        self._base = base
-        self._project_location = project_location
-        self._api = FastAPI(title=f'{CHALLENGE} private api')
-
+        super().__init__(project_location=project_location, dynamic_fields=dynamic_fields)
+        self._api: FastAPI = FastAPI(title=f'{CHALLENGE} private API')
+        self._bind: bool = False
         frame = inspect.currentframe()
         # FIXME(es3n1n): this is sketchy, but we need to get the challenge module name
         self._challenge_module_name = Path(frame.f_back.f_back.f_globals['__file__']).stem  # type: ignore[union-attr]
-        self._bind: bool = False
 
     def run(self) -> None:
         uvicorn.run(
@@ -56,24 +53,18 @@ class APIBaseLauncher:
             workers=WORKERS_AMOUNT,
         )
 
-    def _construct_base(self, team_id: str) -> TeamInstanceLauncherBase:
-        return self._base(team_id, self._project_location)
-
     def _bind_v1(self, router: APIRouter) -> None:
         @router.put('/instance')
         def launch_instance(form: LaunchFormForm) -> LaunchedInstance:
-            launcher = self._construct_base(form.team_id)
-            return launcher.launch_instance()
+            return self.launch_instance(form.team_id)
 
         @router.get('/instance')
         def get_instance_info(team_id: str) -> LaunchedInstance:
-            launcher = self._construct_base(team_id)
-            return launcher.instance_info()
+            return self.instance_info(team_id)
 
         @router.delete('/instance')
         def kill_instance(team_id: str) -> bool:
-            launcher = self._construct_base(team_id)
-            return launcher.kill_instance()
+            return self.kill_instance(team_id)
 
     def _bind_routes(self) -> None:
         @self._api.exception_handler(NonSensitiveError)
@@ -99,17 +90,22 @@ class APIPwnLauncher(APIBaseLauncher, PwnTeamInstanceLauncherBase):
     def __init__(
         self,
         project_location: str = DEFAULT_PROJECT_LOCATION,
+        dynamic_fields: list[str] | None = None,
     ) -> None:
-        super().__init__(PwnTeamInstanceLauncherBase, project_location)
+        super().__init__(project_location=project_location, dynamic_fields=dynamic_fields)
 
     def _bind_v1(self, router: APIRouter) -> None:
         super()._bind_v1(router)
-
         pwn_router = APIRouter(prefix='/pwn')
 
         @pwn_router.get('/flag')
-        def get_flag(team_id: str) -> FlagResponse:
-            launcher = cast('PwnTeamInstanceLauncherBase', self._construct_base(team_id))
-            return FlagResponse(flag=launcher.get_flag())
+        def get_flag(request: Request, team_id: str) -> FlagResponse:
+            get_params = request.query_params
+            for dyn_field in self.dynamic_fields:
+                if dyn_field not in get_params:
+                    msg = f'missing dynamic field {dyn_field} in GET parameters'
+                    raise NonSensitiveError(msg)
+
+            return FlagResponse(flag=self.get_flag(dict(get_params), team_id))
 
         router.include_router(pwn_router)

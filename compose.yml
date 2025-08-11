@@ -1,7 +1,4 @@
 name: blockchain-infra
-include:
-  - compose/base.yml
-  - examples/compose.yml
 services:
   database:
     restart: always
@@ -15,6 +12,25 @@ services:
           - database
     volumes:
       - database:/data
+  ctf-server-orchestrator:
+    restart: unless-stopped
+    container_name: blockchain-infra-orchestrator
+    image: ghcr.io/es3n1n/paradigmctf.py:latest
+    build: .
+    user: root
+    command: uvicorn ctf_server.orchestrator:app --host 0.0.0.0 --port 7283 --workers 11
+    volumes:
+      - "/var/run/docker.sock:/var/run/docker.sock"
+    environment:
+      - BACKEND=docker
+      - DATABASE=redis
+      - REDIS_URL=redis://database:6379/0
+    networks:
+      ctf_network:
+        aliases:
+          - orchestrator
+    depends_on:
+      - database
   ctf-server-anvil-proxy:
     restart: unless-stopped
     container_name: blockchain-infra-anvil-proxy
@@ -39,22 +55,6 @@ services:
       timeout: 3s
       retries: 5
       start_period: 5s
-  ctf-server-orchestrator:
-    restart: unless-stopped
-    container_name: blockchain-infra-orchestrator
-    image: ghcr.io/es3n1n/paradigmctf.py:latest
-    build: .
-    user: root
-    command: uvicorn ctf_server.orchestrator:app --host 0.0.0.0 --port 7283 --workers 11
-    volumes:
-      - "/var/run/docker.sock:/var/run/docker.sock"
-    environment:
-      - BACKEND=docker
-      - DATABASE=redis
-      - REDIS_URL=redis://database:6379/0
-    networks:
-      ctf_network:
-        aliases:
-          - orchestrator
-    depends_on:
-      - database
+include:
+  - compose/base.yml
+  - examples/compose.yml
