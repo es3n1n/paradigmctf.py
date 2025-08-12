@@ -37,7 +37,12 @@ class KubernetesBackend(Backend):
         pod_manifest = {
             'apiVersion': 'v1',
             'kind': 'Pod',
-            'metadata': {'name': instance_id, 'category': 'blockchain', 'challenge': request['challenge_name']},
+            'metadata': {
+                'name': instance_id,
+                'category': 'blockchain',
+                'challenge': f'{request["challenge_name"]}-instance',
+                'team': request['team_id'],
+            },
             'spec': {
                 'volumes': [{'name': 'workdir', 'emptyDir': {}}],
                 'containers': self.__get_anvil_containers(request) + self.__get_daemon_containers(request),
