@@ -39,9 +39,11 @@ class KubernetesBackend(Backend):
             'kind': 'Pod',
             'metadata': {
                 'name': instance_id,
-                'category': 'blockchain',
-                'challenge': f'{request["challenge_name"]}-instance',
-                'team': request['team_id'],
+                'labels': {
+                    'category': 'blockchain',
+                    'challenge': f'{request["challenge_name"]}-instance',
+                    'team': request['team_id'],
+                },
             },
             'spec': {
                 'volumes': [{'name': 'workdir', 'emptyDir': {}}],

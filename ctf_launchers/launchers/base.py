@@ -144,8 +144,8 @@ class TeamInstanceLauncherBase:
             ),
             timeout=60,
         ).json()
-        if not body['ok']:
-            raise NonSensitiveError(body['message'])
+        if not body.get('ok'):
+            raise NonSensitiveError(body.get('message', 'an internal error occurred, contact admins'))
 
         user_data = body['data']
 
