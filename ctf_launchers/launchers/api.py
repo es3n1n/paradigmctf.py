@@ -5,6 +5,7 @@ from pathlib import Path
 import uvicorn
 from fastapi import APIRouter, FastAPI
 from fastapi.responses import JSONResponse
+from loguru import logger
 from pydantic import BaseModel
 from starlette.requests import Request
 
@@ -77,6 +78,9 @@ class APIBaseLauncher(TeamInstanceLauncherBase):
         v1 = APIRouter(prefix='/v1')
         self._bind_v1(v1)
         self._api.include_router(v1)
+
+    def _report_status(self, team: str, status: str) -> None:
+        logger.info(f'team: {team} - {status}')
 
     @property
     def api(self) -> FastAPI:

@@ -63,7 +63,7 @@ class NCBaseLauncher(TeamInstanceLauncherBase):
     def cli_kill_instance(self) -> int:
         return int(not self.kill_instance(self._team))
 
-    def _report_status(self, status: str) -> None:
+    def _report_status(self, _: str, status: str) -> None:
         print(status, flush=True)
 
     def _show_instance(self, instance: LaunchedInstance) -> int:

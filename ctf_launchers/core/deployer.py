@@ -2,6 +2,7 @@ import os
 import subprocess
 from json import loads
 
+from loguru import logger
 from web3 import Web3
 
 from ctf_launchers.types import ChallengeContract
@@ -37,28 +38,32 @@ def deploy(
     anvil_auto_impersonate_account(web3, enabled=True)
 
     rfd, wfd = os.pipe2(os.O_NONBLOCK)  # type: ignore[attr-defined]
+
+    env = {
+        'PATH': '/opt/huff/bin:/opt/foundry/bin:/usr/bin:' + os.getenv('PATH', '/fake'),
+        'MNEMONIC': mnemonic,
+        'OUTPUT_FILE': f'/proc/self/fd/{wfd}',
+    } | env
+    args = [
+        '/opt/foundry/bin/forge',
+        'script',
+        '--rpc-url',
+        web3.provider.endpoint_uri,  # type: ignore[attr-defined]
+        '--out',
+        '/artifacts/out',
+        '--cache-path',
+        '/artifacts/cache',
+        '--broadcast',
+        '--unlocked',
+        '--sender',
+        '0x0000000000000000000000000000000000000000',
+        deploy_script,
+    ]
+
+    logger.info(f'Deploying contracts with command: ({" ".join(args)}) and environment: {env}')
     proc = subprocess.Popen(
-        args=[
-            '/opt/foundry/bin/forge',
-            'script',
-            '--rpc-url',
-            web3.provider.endpoint_uri,  # type: ignore[attr-defined]
-            '--out',
-            '/artifacts/out',
-            '--cache-path',
-            '/artifacts/cache',
-            '--broadcast',
-            '--unlocked',
-            '--sender',
-            '0x0000000000000000000000000000000000000000',
-            deploy_script,
-        ],
-        env={
-            'PATH': '/opt/huff/bin:/opt/foundry/bin:/usr/bin:' + os.getenv('PATH', '/fake'),
-            'MNEMONIC': mnemonic,
-            'OUTPUT_FILE': f'/proc/self/fd/{wfd}',
-        }
-        | env,
+        args=args,
+        env=env,
         pass_fds=[wfd],
         cwd=project_location,
         text=True,

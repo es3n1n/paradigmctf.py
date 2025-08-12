@@ -131,7 +131,7 @@ class TeamInstanceLauncherBase:
         return bool(body.get('ok'))
 
     def launch_instance(self, team: str) -> LaunchedInstance:
-        self._report_status('creating private blockchain...')
+        self._report_status(team, 'creating private blockchain...')
         body = requests.post(
             f'{ORCHESTRATOR_HOST}/instances',
             json=CreateInstanceRequest(
@@ -149,14 +149,14 @@ class TeamInstanceLauncherBase:
 
         user_data = body['data']
 
-        self._report_status('deploying challenge...')
+        self._report_status(team, 'deploying challenge...')
         challenge_contracts = self.deploy(user_data, self.mnemonic)
 
         if not self.update_metadata({'mnemonic': self.mnemonic, 'challenge_contracts': challenge_contracts}, team):
             msg = 'unable to update metadata'
             raise NonSensitiveError(msg)
 
-        self._report_status('your private blockchain has been set up!')
+        self._report_status(team, 'private blockchain has been set up!')
         return LaunchedInstance.parse_instance(
             user_data=user_data,
             challenge_contracts=challenge_contracts,
@@ -177,7 +177,7 @@ class TeamInstanceLauncherBase:
     def kill_instance(self, team: str) -> bool:
         resp = requests.delete(f'{ORCHESTRATOR_HOST}/instances/{self._get_instance_id(team)}', timeout=5)
         body = resp.json()
-        self._report_status(body.get('message', 'no message'))
+        self._report_status(team, body.get('message', 'no message'))
         return True
 
     def deploy(self, user_data: UserData, mnemonic: str) -> list[ChallengeContract]:
@@ -188,7 +188,7 @@ class TeamInstanceLauncherBase:
         # This method can be overridden to provide additional deployment arguments
         return {}
 
-    def _report_status(self, status: str) -> None:
+    def _report_status(self, team: str, status: str) -> None:
         pass
 
     def run(self) -> None:
