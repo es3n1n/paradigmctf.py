@@ -135,6 +135,7 @@ class TeamInstanceLauncherBase:
         body = requests.post(
             f'{ORCHESTRATOR_HOST}/instances',
             json=CreateInstanceRequest(
+                challenge_name=CHALLENGE,
                 instance_id=self._get_instance_id(team),
                 timeout=INSTANCE_LIFE_TIME,
                 anvil_instances=self.get_anvil_instances(),
