@@ -103,7 +103,7 @@ class APIPwnLauncher(APIBaseLauncher, PwnTeamInstanceLauncherBase):
             get_params = request.query_params
             for dyn_field in self.dynamic_fields:
                 if dyn_field not in get_params:
-                    msg = f'missing dynamic field {dyn_field} in GET parameters'
+                    msg = f'missing dynamic field {dyn_field}'
                     raise NonSensitiveError(msg)
 
             return FlagResponse(flag=self.get_flag(dict(get_params), team_id))

@@ -28,7 +28,7 @@ PUBLIC_HOST = os.getenv('PUBLIC_HOST', 'http://127.0.0.1:8545').rstrip('/')
 PUBLIC_WEBSOCKET_HOST = http_url_to_ws(PUBLIC_HOST)
 
 ETH_RPC_URL = os.getenv('ETH_RPC_URL')
-TIMEOUT = int(os.getenv('TIMEOUT', '1440'))
+INSTANCE_LIFE_TIME = int(os.getenv('INSTANCE_LIFE_TIME', '900'))  # 15 minutes by default
 
 DEFAULT_PROJECT_LOCATION = 'challenge/project'
 
@@ -136,7 +136,7 @@ class TeamInstanceLauncherBase:
             f'{ORCHESTRATOR_HOST}/instances',
             json=CreateInstanceRequest(
                 instance_id=self._get_instance_id(team),
-                timeout=TIMEOUT,
+                timeout=INSTANCE_LIFE_TIME,
                 anvil_instances=self.get_anvil_instances(),
                 daemon_instances=self.get_daemon_instances(),
             ),
@@ -194,6 +194,10 @@ class TeamInstanceLauncherBase:
 
 
 class PwnTeamInstanceLauncherBase(TeamInstanceLauncherBase):
+    def load_flag_value(self, _: str) -> str:
+        # _ is the team id
+        return os.getenv('FLAG', 'cr3{no_flag}')
+
     def get_flag(self, dynamic_fields: dict[str, str], team: str) -> str:
         instance_body = requests.get(f'{ORCHESTRATOR_HOST}/instances/{self._get_instance_id(team)}', timeout=5).json()
         if not instance_body['ok']:
@@ -206,7 +210,7 @@ class PwnTeamInstanceLauncherBase(TeamInstanceLauncherBase):
             msg = 'are you sure you solved it?'
             raise NonSensitiveError(msg)
 
-        return os.getenv('FLAG', 'cr3{no_flag}')
+        return self.load_flag_value(team)
 
     def is_contract_solved(self, web3: Web3, contract: ChallengeContract, _: dict[str, str], __: str) -> bool:
         # _ is dynamic_fields, which are not used in this method
