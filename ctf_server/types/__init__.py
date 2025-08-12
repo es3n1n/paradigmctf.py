@@ -70,6 +70,8 @@ class DaemonInstanceArgs(TypedDict):
 
 
 class CreateInstanceRequest(TypedDict):
+    challenge_name: str
+    team_id: str
     instance_id: str
     timeout: int
     anvil_instances: NotRequired[dict[str, LaunchAnvilInstanceArgs]]
