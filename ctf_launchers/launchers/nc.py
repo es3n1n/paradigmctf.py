@@ -94,7 +94,7 @@ class NCPwnLauncher(PwnTeamInstanceLauncherBase, NCBaseLauncher):
         dynamic_fields: dict[str, str] = {}
         for dynamic_field in self.dynamic_fields:
             try:
-                dynamic_fields[dynamic_field] = input(f'{dynamic_field}? ')
+                dynamic_fields[dynamic_field] = input(f'{dynamic_field}? ').rstrip('\r')
             except (EOFError, KeyboardInterrupt):
                 return 1
 
