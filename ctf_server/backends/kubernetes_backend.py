@@ -4,13 +4,21 @@ import time
 from typing import TYPE_CHECKING, Any
 
 from kubernetes import config
+from kubernetes.client import V1EnvVar
 from kubernetes.client.api import core_v1_api
 from kubernetes.client.exceptions import ApiException
 from loguru import logger
 from web3 import Web3
 
 from ctf_server.databases.database import Database
-from ctf_server.types import DEFAULT_IMAGE, CreateInstanceRequest, InstanceInfo, UserData, format_anvil_args
+from ctf_server.types import (
+    DEFAULT_IMAGE,
+    CreateInstanceRequest,
+    InstanceInfo,
+    UserData,
+    format_anvil_args,
+    format_anvil_env,
+)
 
 from .backend import Backend
 
@@ -109,6 +117,7 @@ class KubernetesBackend(Backend):
                         'name': 'workdir',
                     }
                 ],
+                'env': [V1EnvVar(name=k, value=v) for k, v in format_anvil_env(anvil_args).items()],
             }
             for offset, (anvil_id, anvil_args) in enumerate(args.get('anvil_instances', {}).items())
         ]

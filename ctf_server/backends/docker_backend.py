@@ -10,7 +10,14 @@ from loguru import logger
 from web3 import Web3
 
 from ctf_server.databases.database import Database
-from ctf_server.types import DEFAULT_IMAGE, CreateInstanceRequest, InstanceInfo, UserData, format_anvil_args
+from ctf_server.types import (
+    DEFAULT_IMAGE,
+    CreateInstanceRequest,
+    InstanceInfo,
+    UserData,
+    format_anvil_args,
+    format_anvil_env,
+)
 
 from .backend import Backend
 
@@ -52,6 +59,7 @@ class DockerBackend(Backend):
                 mounts=[
                     Mount(target='/data', source=volume.id),
                 ],
+                environment=format_anvil_env(anvil_args),
             )
 
         daemon_containers: dict[str, Container] = {}
