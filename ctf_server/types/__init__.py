@@ -63,16 +63,14 @@ def format_anvil_args(args: LaunchAnvilInstanceArgs, anvil_id: str, port: int = 
     if args.get('block_time') is not None:
         cmd_args += ['--block-time', str(args['block_time'])]
 
+    if args.get('gas_limit') is not None:
+        cmd_args += ['--gas-limit', str(args['gas_limit'])]
+
     return cmd_args
 
 
-def format_anvil_env(args: LaunchAnvilInstanceArgs) -> dict[str, str]:
-    result: dict[str, str] = {}
-
-    if args.get('gas_limit') is not None:
-        result['FOUNDRY_GAS_LIMIT'] = str(args['gas_limit'])
-
-    return result
+def format_anvil_env(_: LaunchAnvilInstanceArgs) -> dict[str, str]:
+    return {}
 
 
 class DaemonInstanceArgs(TypedDict):
