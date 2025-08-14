@@ -9,6 +9,7 @@ class Launcher(PwnChallengeLauncher):
             'main': self.get_anvil_instance(
                 image='ghcr.io/es3n1n/foundry:latest',
                 extra_allowed_methods=['debug_getRawReceipts'],
+                gas_limit=100_000_000,
             ),
         }
 
