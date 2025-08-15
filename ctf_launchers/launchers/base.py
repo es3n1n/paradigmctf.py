@@ -89,14 +89,6 @@ class TeamInstanceLauncherBase:
     ) -> None:
         self.dynamic_fields = dynamic_fields if dynamic_fields else []
         self.project_location = project_location
-        self._mnemonic: str | None = None
-
-    @property
-    def mnemonic(self) -> str:
-        if self._mnemonic:
-            return self._mnemonic
-        self._mnemonic = generate_mnemonic(12, lang='english')
-        return self._mnemonic
 
     def get_anvil_instances(self) -> dict[str, LaunchAnvilInstanceArgs]:
         return {
@@ -114,7 +106,7 @@ class TeamInstanceLauncherBase:
         if 'fork_url' not in kwargs:
             kwargs['fork_url'] = ETH_RPC_URL
         if 'mnemonic' not in kwargs:
-            kwargs['mnemonic'] = self.mnemonic
+            kwargs['mnemonic'] = generate_mnemonic(12, lang='english')
         return LaunchAnvilInstanceArgs(**kwargs)  # type: ignore[typeddict-item]
 
     def _get_instance_id(self, team: str) -> str:
@@ -132,16 +124,20 @@ class TeamInstanceLauncherBase:
 
     def launch_instance(self, team: str) -> LaunchedInstance:
         self._report_status(team, 'creating private blockchain...')
+        form = CreateInstanceRequest(
+            challenge_name=CHALLENGE,
+            team_id=team,
+            instance_id=self._get_instance_id(team),
+            timeout=INSTANCE_LIFE_TIME,
+            anvil_instances=self.get_anvil_instances(),
+            daemon_instances=self.get_daemon_instances(),
+        )
+        mnemonics = {k: str(v['mnemonic']) for k, v in form['anvil_instances'].items()}
+        main_mnemonic = mnemonics['main']
+
         body = requests.post(
             f'{ORCHESTRATOR_HOST}/instances',
-            json=CreateInstanceRequest(
-                challenge_name=CHALLENGE,
-                team_id=team,
-                instance_id=self._get_instance_id(team),
-                timeout=INSTANCE_LIFE_TIME,
-                anvil_instances=self.get_anvil_instances(),
-                daemon_instances=self.get_daemon_instances(),
-            ),
+            json=form,
             timeout=60,
         ).json()
         if not body.get('ok'):
@@ -150,9 +146,10 @@ class TeamInstanceLauncherBase:
         user_data = body['data']
 
         self._report_status(team, 'deploying challenge...')
-        challenge_contracts = self.deploy(user_data, self.mnemonic)
+        challenge_contracts = self.deploy(user_data, mnemonics)
 
-        if not self.update_metadata({'mnemonic': self.mnemonic, 'challenge_contracts': challenge_contracts}, team):
+        # FIXME(es3n1n): This is wrong, we should be saving all mnemonics, but it will do the trick for now
+        if not self.update_metadata({'mnemonic': main_mnemonic, 'challenge_contracts': challenge_contracts}, team):
             msg = 'unable to update metadata'
             raise NonSensitiveError(msg)
 
@@ -160,7 +157,7 @@ class TeamInstanceLauncherBase:
         return LaunchedInstance.parse_instance(
             user_data=user_data,
             challenge_contracts=challenge_contracts,
-            mnemonic=self.mnemonic,
+            mnemonic=main_mnemonic,
         )
 
     def instance_info(self, team: str) -> LaunchedInstance:
@@ -180,9 +177,9 @@ class TeamInstanceLauncherBase:
         self._report_status(team, body.get('message', 'no message'))
         return True
 
-    def deploy(self, user_data: UserData, mnemonic: str) -> list[ChallengeContract]:
+    def deploy(self, user_data: UserData, mnemonics: dict[str, str]) -> list[ChallengeContract]:
         web3 = get_privileged_web3(user_data, 'main')
-        return deploy(web3, self.project_location, mnemonic, env=self.get_deployment_args(user_data))
+        return deploy(web3, self.project_location, mnemonics['main'], env=self.get_deployment_args(user_data))
 
     def get_deployment_args(self, _: UserData) -> dict[str, str]:
         # This method can be overridden to provide additional deployment arguments
