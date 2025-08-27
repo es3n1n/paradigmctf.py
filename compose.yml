@@ -26,7 +26,10 @@ services:
       - DATABASE=redis
       - REDIS_URL=redis://database:6379/0
     networks:
-      ctf_network:
+      ctf_network:  # to allow challenges talk to orchestrator
+        aliases:
+          - orchestrator
+      instances_network:  # to allow orchestrator talk to spawned instances
         aliases:
           - orchestrator
     depends_on:
@@ -44,9 +47,8 @@ services:
       - DATABASE=redis
       - REDIS_URL=redis://database:6379/0
     networks:
-      ctf_network:
-        aliases:
-          - anvil-proxy
+      ctf_network:  # in order to talk to orchestrator
+      instances_network:  # in order to talk to challenges
     depends_on:
       - database
     healthcheck:
@@ -55,6 +57,15 @@ services:
       timeout: 3s
       retries: 5
       start_period: 5s
+volumes:
+  database:
+    driver: local
+networks:
+  instances_network:
+    # Ideally we should not allow instances talk to each other/orchestrator, but currently it is not possible to do so
+    #   with docker compose without doing sketchy iptables hacks.
+    name: paradigmctf-instances
+  ctf_network:
+    name: paradigmctf
 include:
-  - compose/base.yml
   - examples/compose.yml

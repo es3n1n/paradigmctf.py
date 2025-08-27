@@ -1,6 +1,0 @@
-volumes:
-  database:
-    driver: local
-networks:
-  ctf_network:
-    name: paradigmctf
