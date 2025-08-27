@@ -27,6 +27,11 @@ if TYPE_CHECKING:
     from docker.models.volumes import Volume
 
 
+# FIXME(es3n1n): Currently it is not possible in docker compose networking to allow us to make orchestrator talk to the
+#  instances but not the other way around
+INSTANCES_NETWORK_NAME = 'paradigmctf-instances'
+
+
 class DockerBackend(Backend):
     def __init__(self, database: Database) -> None:
         self.__client = docker.from_env()
@@ -47,7 +52,7 @@ class DockerBackend(Backend):
             anvil_containers[anvil_id] = self.__client.containers.run(  # type: ignore[call-overload]
                 name=f'{instance_id}-{anvil_id}',
                 image=anvil_args.get('image', DEFAULT_IMAGE),
-                network='paradigmctf',
+                network=INSTANCES_NETWORK_NAME,
                 entrypoint=['sh', '-c'],
                 command=[
                     'while true; do anvil '
@@ -67,7 +72,7 @@ class DockerBackend(Backend):
             daemon_containers[daemon_id] = self.__client.containers.run(
                 name=f'{instance_id}-{daemon_id}',
                 image=daemon_args['image'],
-                network='paradigmctf',
+                network=INSTANCES_NETWORK_NAME,  # TODO(es3n1n): perhaps separate network?
                 restart_policy={'Name': 'always'},
                 detach=True,
                 environment={
@@ -81,7 +86,7 @@ class DockerBackend(Backend):
 
             anvil_instances[anvil_id] = {
                 'id': anvil_id,
-                'ip': container.attrs['NetworkSettings']['Networks']['paradigmctf']['IPAddress'],
+                'ip': container.attrs['NetworkSettings']['Networks'][INSTANCES_NETWORK_NAME]['IPAddress'],
                 'port': 8545,
             }
             self._remap_extra_anvil_keys(anvil_instances[anvil_id], requested_anvil_instances[anvil_id])

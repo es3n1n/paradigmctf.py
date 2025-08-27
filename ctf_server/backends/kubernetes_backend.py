@@ -48,12 +48,14 @@ class KubernetesBackend(Backend):
             'metadata': {
                 'name': instance_id,
                 'labels': {
+                    'app': 'anvil',
                     'category': 'blockchain',
                     'challenge': f'{request["challenge_name"]}-instance',
                     'team': request['team_id'],
                 },
             },
             'spec': {
+                'automountServiceAccountToken': False,
                 'volumes': [{'name': 'workdir', 'emptyDir': {}}],
                 'containers': self.__get_anvil_containers(request) + self.__get_daemon_containers(request),
             },

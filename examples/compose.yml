@@ -8,7 +8,8 @@ services:
       - "31337:1337"
     networks:
       - default
-      - ctf_network
+      - ctf_network  # in order to talk to orchestrator
+      - instances_network  # in order to talk to challenge
     environment:
       - "CHALLENGE=hello"
       - "FLAG=cr3{paradigm_ctf_hello_world}"
@@ -25,7 +26,8 @@ services:
       - "31338:1337"
     networks:
       - default
-      - ctf_network
+      - ctf_network  # in order to talk to orchestrator
+      - instances_network  # in order to talk to challenge
     environment:
       - "CHALLENGE=extra-methods"
       - "FLAG=cr3{extra_methods}"
@@ -41,7 +43,8 @@ services:
       - "31339:1337"
     networks:
       - default
-      - ctf_network
+      - ctf_network  # in order to talk to orchestrator
+      - instances_network  # in order to talk to challenge
     environment:
       - "CHALLENGE=hello-api"
       - "FLAG=cr3{paradigm_ctf_hello_api}"

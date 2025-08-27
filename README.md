@@ -34,7 +34,7 @@ Slightly modified/refactored/fixed version of [paradigmctf.py](https://github.co
 
 ### Example deployments
 
-There a few compose examples for deployments that are used for tests, you can reference them 
+There a few examples for deployments that are used for tests, you can reference them 
 while deploying your own instance:
 
 - [compose.yml](./compose.yml) - docker backend
@@ -55,6 +55,7 @@ To run tests, you will first need to deploy either of the example deployments.
 - Make database stuff async
 - Get rid of blind exception catches
 - Migrate from requests to aiohttp fully
+- Spawned instances in docker backend aren't fully isolated from each other/orchestrator
 
 paradigm's original todo:
 
