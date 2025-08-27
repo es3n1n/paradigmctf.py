@@ -48,6 +48,7 @@ class KubernetesBackend(Backend):
             'metadata': {
                 'name': instance_id,
                 'labels': {
+                    'app': 'anvil',
                     'category': 'blockchain',
                     'challenge': f'{request["challenge_name"]}-instance',
                     'team': request['team_id'],

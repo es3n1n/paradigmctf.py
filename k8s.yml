@@ -41,6 +41,7 @@ spec:
       labels:
         app: redis
     spec:
+      automountServiceAccountToken: false
       containers:
         - name: redis
           image: redis/redis-stack:latest
@@ -94,6 +95,7 @@ spec:
       containers:
       - name: orchestrator
         image: ghcr.io/es3n1n/paradigmctf.py:latest
+        # Workers = num_threads + 1
         command: ["uvicorn", "--host", "0.0.0.0", "--port", "7283", "ctf_server.orchestrator:app", "--workers", "3"]
         env:
         - name: BACKEND
@@ -112,7 +114,6 @@ spec:
           allowPrivilegeEscalation: false
         resources:
           limits:
-            # TODO(es3n1n): workers = cores * 2.0 + 1.0 (is this correct?)
             cpu: 1.0
             memory: 1G
 ---
@@ -123,7 +124,7 @@ metadata:
 spec:
   selector:
     app: ctf-server
-  # Make sure to not expose this port publicly in production!
+  # Make sure to never expose this port publicly in production!
   ports:
     - protocol: TCP
       port: 7283
@@ -143,12 +144,13 @@ spec:
       labels:
         app: anvil-proxy
     spec:
-      serviceAccountName: ctf-server
+      automountServiceAccountToken: false
       securityContext:
         runAsNonRoot: true
       containers:
       - name: anvil-proxy
         image: ghcr.io/es3n1n/paradigmctf.py:latest
+        # Workers = num_threads + 1
         command: ["uvicorn", "--host", "0.0.0.0", "--port", "8545", "--workers", "3", "ctf_server.anvil_proxy:app"]
         env:
         - name: DATABASE
@@ -165,7 +167,6 @@ spec:
           allowPrivilegeEscalation: false
         resources:
           limits:
-            # TODO(es3n1n): workers = cores * 2.0 + 1.0 (is this correct?)
             cpu: 1.0
             memory: 2G
 ---
@@ -180,3 +181,39 @@ spec:
   ports:
     - protocol: TCP
       port: 8545
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: anvil-egress-restrict
+  namespace: default
+spec:
+  podSelector:
+    matchLabels:
+      app: anvil
+  policyTypes:
+  - Egress
+  egress:
+  # Allow DNS to CoreDNS
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: kube-system
+      podSelector:
+        matchLabels:
+          k8s-app: kube-dns
+    ports:
+    - protocol: UDP
+      port: 53
+    - protocol: TCP
+      port: 53
+  # Allow everything outside the cluster
+  - to:
+    - ipBlock:
+        cidr: 0.0.0.0/0
+        except:
+        # NOTE: You might want to adjust these exceptions to your cluster setup
+        - 10.0.0.0/8
+        - 10.96.0.0/12
+        - 172.16.0.0/12
+        - 192.168.0.0/16
