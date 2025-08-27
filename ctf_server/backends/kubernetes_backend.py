@@ -42,6 +42,7 @@ class KubernetesBackend(Backend):
     def _launch_instance_impl(self, request: CreateInstanceRequest) -> UserData:
         instance_id = request['instance_id']
 
+        anvil_containers, anvil_volumes = self.__get_anvil_containers_and_volumes(request)
         pod_manifest = {
             'apiVersion': 'v1',
             'kind': 'Pod',
@@ -56,8 +57,8 @@ class KubernetesBackend(Backend):
             },
             'spec': {
                 'automountServiceAccountToken': False,
-                'volumes': [{'name': 'workdir', 'emptyDir': {}}],
-                'containers': self.__get_anvil_containers(request) + self.__get_daemon_containers(request),
+                'volumes': anvil_volumes,
+                'containers': anvil_containers + self.__get_daemon_containers(request),
             },
         }
 
@@ -102,27 +103,44 @@ class KubernetesBackend(Backend):
             metadata={},
         )
 
-    def __get_anvil_containers(self, args: CreateInstanceRequest) -> list[Any]:
-        return [
-            {
-                'name': anvil_id,
-                'image': anvil_args.get('image', DEFAULT_IMAGE),
-                'command': ['sh', '-c'],
-                'args': [
-                    'while true; do anvil '
-                    + ' '.join([shlex.quote(str(v)) for v in format_anvil_args(anvil_args, anvil_id, 8545 + offset)])
-                    + '; sleep 1; done;'
-                ],
-                'volumeMounts': [
-                    {
-                        'mountPath': '/data',
-                        'name': 'workdir',
-                    }
-                ],
-                'env': [V1EnvVar(name=k, value=v) for k, v in format_anvil_env(anvil_args).items()],
-            }
-            for offset, (anvil_id, anvil_args) in enumerate(args.get('anvil_instances', {}).items())
-        ]
+    def __get_anvil_containers_and_volumes(
+        self, args: CreateInstanceRequest
+    ) -> tuple[list[Any], list[dict[str, str | dict]]]:
+        # Making sure we're using the same items list order in both things
+        volumes: list[dict[str, str | dict]] = []
+        containers: list[Any] = []
+
+        for offset, (anvil_id, anvil_args) in enumerate(args.get('anvil_instances', {}).items()):
+            volume_name = f'workdir-{offset}'
+            volumes.append(
+                {
+                    'name': volume_name,
+                    'emptyDir': {},
+                }
+            )
+            containers.append(
+                {
+                    'name': anvil_id,
+                    'image': anvil_args.get('image', DEFAULT_IMAGE),
+                    'command': ['sh', '-c'],
+                    'args': [
+                        'while true; do anvil '
+                        + ' '.join(
+                            [shlex.quote(str(v)) for v in format_anvil_args(anvil_args, anvil_id, 8545 + offset)]
+                        )
+                        + '; sleep 1; done;'
+                    ],
+                    'volumeMounts': [
+                        {
+                            'mountPath': '/data',
+                            'name': volume_name,
+                        }
+                    ],
+                    'env': [V1EnvVar(name=k, value=v) for k, v in format_anvil_env(anvil_args).items()],
+                }
+            )
+
+        return containers, volumes
 
     def __get_daemon_containers(self, args: CreateInstanceRequest) -> list[Any]:
         return [
