@@ -56,6 +56,7 @@ class KubernetesBackend(Backend):
                 },
             },
             'spec': {
+                'enableServiceLinks': False,
                 'automountServiceAccountToken': False,
                 'volumes': anvil_volumes,
                 'containers': anvil_containers + self.__get_daemon_containers(request),
