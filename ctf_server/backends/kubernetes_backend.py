@@ -1,9 +1,11 @@
 import http.client
 import shlex
 import time
+from collections.abc import Iterator
 from typing import TYPE_CHECKING, Any
 
 from kubernetes import config
+from kubernetes import watch as k8s_watch
 from kubernetes.client import V1EnvVar
 from kubernetes.client.api import core_v1_api
 from kubernetes.client.exceptions import ApiException
@@ -63,15 +65,8 @@ class KubernetesBackend(Backend):
             },
         }
 
-        api_response: V1Pod = self.__core_v1.create_namespaced_pod(namespace='default', body=pod_manifest)
-        while True:
-            api_response = self.__core_v1.read_namespaced_pod(
-                name=pod_manifest['metadata']['name'],  # type: ignore[index]
-                namespace='default',
-            )
-            if api_response.status.phase != 'Pending':
-                break
-            time.sleep(1)
+        self.__core_v1.create_namespaced_pod(namespace='default', body=pod_manifest)
+        api_response = self._wait_for_pod_ready(instance_id)
 
         anvil_instances: dict[str, InstanceInfo] = {}
         for offset, anvil_id in enumerate(request.get('anvil_instances', {}).keys()):
@@ -164,20 +159,40 @@ class KubernetesBackend(Backend):
             return None
 
         self.__core_v1.delete_namespaced_pod(namespace='default', name=instance_id, grace_period_seconds=0)
-
-        while True:
-            try:
-                self.__core_v1.read_namespaced_pod(
-                    namespace='default',
-                    name=instance_id,
-                )
-            except ApiException as e:
-                if e.status == http.client.NOT_FOUND:
-                    break
-
-            time.sleep(0.5)
+        self._wait_for_pod_deletion(instance_id)
 
         return instance
+
+    def _watch_pod(self, instance_id: str, timeout: int = 120, **kwargs: str) -> Iterator[dict]:
+        w = k8s_watch.Watch()
+        yield from w.stream(
+            self.__core_v1.list_namespaced_pod,
+            namespace='default',
+            field_selector=f'metadata.name={instance_id}',
+            timeout_seconds=timeout,
+            **kwargs,
+        )
+
+    def _wait_for_pod_ready(self, instance_id: str, timeout: int = 120) -> 'V1Pod':
+        for event in self._watch_pod(instance_id, timeout):
+            pod: V1Pod = event['object']
+            if pod.status.phase != 'Pending':
+                return pod
+
+        msg = f'pod {instance_id} did not become ready within {timeout}s'
+        raise TimeoutError(msg)
+
+    def _wait_for_pod_deletion(self, instance_id: str, timeout: int = 120) -> None:
+        try:
+            pod = self.__core_v1.read_namespaced_pod(name=instance_id, namespace='default')
+        except ApiException as e:
+            if e.status == http.client.NOT_FOUND:
+                return
+            raise
+
+        for event in self._watch_pod(instance_id, timeout, resource_version=pod.metadata.resource_version):
+            if event['type'] == 'DELETED':
+                return
 
     def _cleanup_instance(self, args: CreateInstanceRequest) -> None:
         instance_id = args['instance_id']
@@ -196,11 +211,4 @@ class KubernetesBackend(Backend):
                 return
 
         # wait until the pod disappears so that a subsequent launch can reuse the name
-        while True:
-            try:
-                self.__core_v1.read_namespaced_pod(name=instance_id, namespace='default')
-                time.sleep(0.5)
-            except ApiException as e:
-                if e.status == http.client.NOT_FOUND:
-                    break
-                raise
+        self._wait_for_pod_deletion(instance_id)

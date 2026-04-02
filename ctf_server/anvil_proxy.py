@@ -1,6 +1,6 @@
 import builtins
 import json
-from collections.abc import AsyncGenerator
+from collections.abc import AsyncGenerator, Awaitable, Callable
 from contextlib import asynccontextmanager, suppress
 from dataclasses import dataclass
 from typing import Any
@@ -40,7 +40,8 @@ class Context:
     database: Database = None  # type: ignore[assignment]
 
     def setup(self) -> None:
-        self.session = aiohttp.ClientSession()
+        timeout = aiohttp.ClientTimeout(total=30, connect=5)
+        self.session = aiohttp.ClientSession(timeout=timeout)
         self.database = load_database()
 
     async def shutdown(self) -> None:
@@ -105,7 +106,7 @@ def validate_request(request: dict, instance_info: InstanceInfo) -> dict | None:
 
 async def send_request(
     anvil_instance: InstanceInfo, request_id: str | None, body: dict | list | str | int | None
-) -> dict | None:
+) -> dict | list | None:
     instance_host = f'http://{anvil_instance["ip"]}:{anvil_instance["port"]}'
     try:
         async with context.session.post(instance_host, json=body) as resp:
@@ -115,31 +116,33 @@ async def send_request(
         return jsonrpc_fail(request_id, -32602, 'failed to proxy request to anvil instance')
 
 
+async def proxy_batch(
+    batch: list, anvil_instance: InstanceInfo, send: Callable[[list[dict]], Awaitable[dict | list | None]]
+) -> list[dict]:
+    errors: list[dict] = []
+    valid: list[dict] = []
+    for req in batch:
+        err = validate_request(req, anvil_instance)
+        if err is not None:
+            errors.append(err)
+        else:
+            valid.append(req)
+
+    upstream = await send(valid) if valid else []
+    upstream_responses = upstream if isinstance(upstream, list) else []
+
+    return errors + upstream_responses
+
+
 async def proxy_request(anvil_instance: InstanceInfo, body: list | dict) -> dict | list | None:
-    request_id = body.get('id') if isinstance(body, dict) else None
-
     if isinstance(body, list):
-        responses = []
-        for idx, req in enumerate(body):
-            validation_error = validate_request(req, anvil_instance)
-            responses.append(validation_error)
 
-            if validation_error is not None:
-                body[idx] = {
-                    'jsonrpc': '2.0',
-                    'id': idx,
-                    'method': 'web3_clientVersion',
-                }
+        async def _send_http(reqs: list[dict]) -> dict | list | None:
+            return await send_request(anvil_instance, None, reqs)
 
-        upstream_responses = await send_request(anvil_instance, request_id, body)
-        for idx in range(len(responses)):
-            if responses[idx] is None:
-                if isinstance(upstream_responses, list):
-                    responses[idx] = upstream_responses[idx]
-                else:
-                    responses[idx] = upstream_responses
+        return await proxy_batch(body, anvil_instance, _send_http)
 
-        return responses
+    request_id = body.get('id') if isinstance(body, dict) else None
 
     if not isinstance(body, dict):
         return jsonrpc_fail(request_id, -32600, 'expected json object')
@@ -166,6 +169,48 @@ async def http_rpc(external_id: str, anvil_id: str, request: Request) -> dict | 
         return jsonrpc_fail(None, -32602, 'invalid rpc url, chain not found')
 
     return await proxy_request(anvil_instance, body)
+
+
+async def _handle_ws_message(
+    message_data: str, anvil_instance: InstanceInfo, client_ws: WebSocket, remote_ws: websockets.ClientConnection
+) -> None:
+    try:
+        json_msg = json.loads(message_data)
+    except json.JSONDecodeError:
+        await client_ws.send_json(jsonrpc_fail(None, -32600, 'expected json body'))
+        return
+
+    if isinstance(json_msg, list):
+
+        async def _send_ws(reqs: list[dict]) -> dict | list | None:
+            await remote_ws.send(json.dumps(reqs))
+            responses: list[dict] = []
+            while len(responses) < len(reqs):
+                raw_resp = await remote_ws.recv()
+                parsed = json.loads(raw_resp if isinstance(raw_resp, str) else raw_resp.decode())
+                if isinstance(parsed, list):
+                    responses.extend(parsed)
+                elif isinstance(parsed, dict):
+                    responses.append(parsed)
+            return responses
+
+        await client_ws.send_json(await proxy_batch(json_msg, anvil_instance, _send_ws))
+        return
+
+    if not isinstance(json_msg, dict):
+        await client_ws.send_json(jsonrpc_fail(None, -32600, 'expected json object'))
+        return
+
+    if validation := validate_request(json_msg, anvil_instance):
+        await client_ws.send_json(validation)
+        return
+
+    await remote_ws.send(message_data)
+    response = await remote_ws.recv()
+
+    if isinstance(response, str):
+        response = response.encode()
+    await client_ws.send_bytes(response)
 
 
 @app.websocket('/{external_id}/{anvil_id}/ws')
@@ -195,22 +240,7 @@ async def ws_rpc(external_id: str, anvil_id: str, client_ws: WebSocket) -> None:
                     continue
 
                 message_data: str = raw_message.get('text') or raw_message.get('bytes', b'').decode('utf-8')
-                try:
-                    json_msg = json.loads(message_data)
-                except json.JSONDecodeError:
-                    await client_ws.send_json(jsonrpc_fail(None, -32600, 'expected json body'))
-                    continue
-
-                if validation := validate_request(json_msg, anvil_instance):
-                    await client_ws.send_json(validation)
-                    continue
-
-                await remote_ws.send(message_data)
-                response = await remote_ws.recv()
-
-                if isinstance(response, str):
-                    response = response.encode()
-                await client_ws.send_bytes(response)
+                await _handle_ws_message(message_data, anvil_instance, client_ws, remote_ws)
     except (WebSocketDisconnect, WebSocketException, KeyError):  # KeyError for empty messages
         # fixme(es3n1n, 28.03.24): ugly exception handling
         with suppress(builtins.BaseException):

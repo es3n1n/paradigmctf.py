@@ -27,6 +27,17 @@ roleRef:
   name: ctf-server
   apiGroup: rbac.authorization.k8s.io
 ---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: redis-data
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -62,7 +73,8 @@ spec:
               memory: 1G
       volumes:
         - name: database
-          emptyDir: {}
+          persistentVolumeClaim:
+            claimName: redis-data
 ---
 apiVersion: v1
 kind: Service
