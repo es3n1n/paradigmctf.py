@@ -21,6 +21,7 @@ Slightly modified/refactored/fixed version of [paradigmctf.py](https://github.co
 - Migrated to uv
 - Added API challenge launcher mode, so you can integrate instance spawning in your own CTF platform
 - Added support for challenges with "dynamic" fields, which will be asked for user when requesting the flag
+- Batch JSON-RPC responses from the anvil proxy no longer preserve the original request ordering
 - Other improvements, fixes
 
 ### Untested features

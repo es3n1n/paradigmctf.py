@@ -80,8 +80,11 @@ class RedisDatabase(Database):
         return self.get_instance(instance_id)  # type: ignore[arg-type]
 
     def get_all_instances(self) -> list[UserData]:
-        keys = self.__client.keys('instance/*')
-        return [instance for key in keys if (instance := self.get_instance(key.split('/')[1]))]  # type: ignore[union-attr]
+        return [
+            instance
+            for key in self.__client.scan_iter(match='instance/*')
+            if (instance := self.get_instance(key.split('/')[1]))  # type: ignore[union-attr]
+        ]
 
     def get_expired_instances(self) -> list[UserData]:
         instance_ids = self.__client.zrange('expiries', 0, int(time.time()), byscore=True)
