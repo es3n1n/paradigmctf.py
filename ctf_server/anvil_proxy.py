@@ -28,6 +28,7 @@ DISALLOWED_METHODS = [
     'eth_signTypedData_v3',
     'eth_signTypedData_v4',
     'eth_sendTransaction',
+    'eth_sendTransactionSync',
     'eth_sendUnsignedTransaction',
 ]
 
