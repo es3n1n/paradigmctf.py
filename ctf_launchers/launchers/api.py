@@ -1,9 +1,10 @@
+import hmac
 import inspect
 import os
 from pathlib import Path
 
 import uvicorn
-from fastapi import APIRouter, FastAPI
+from fastapi import APIRouter, Depends, FastAPI, HTTPException
 from fastapi.responses import JSONResponse
 from loguru import logger
 from pydantic import BaseModel
@@ -41,6 +42,7 @@ class APIBaseLauncher(TeamInstanceLauncherBase):
         super().__init__(project_location=project_location, dynamic_fields=dynamic_fields)
         self._api: FastAPI = FastAPI(title=f'{CHALLENGE} private API')
         self._bind: bool = False
+        self._token = os.getenv('API_AUTH_TOKEN')
         frame = inspect.currentframe()
         # FIXME(es3n1n): this is sketchy, but we need to get the challenge module name
         self._challenge_module_name = Path(frame.f_back.f_back.f_globals['__file__']).stem  # type: ignore[union-attr]
@@ -53,6 +55,14 @@ class APIBaseLauncher(TeamInstanceLauncherBase):
             server_header=False,
             workers=WORKERS_AMOUNT,
         )
+
+    def _authenticate(self, request: Request) -> None:
+        if not self._token:
+            return
+
+        scheme, _, token = request.headers.get('authorization', '').partition(' ')
+        if scheme.lower() != 'bearer' or not hmac.compare_digest(token.strip(), self._token):
+            raise HTTPException(status_code=401, detail='invalid or missing api token')
 
     def _bind_v1(self, router: APIRouter) -> None:
         @router.put('/instance')
@@ -75,7 +85,7 @@ class APIBaseLauncher(TeamInstanceLauncherBase):
                 content={'detail': str(exc)},
             )
 
-        v1 = APIRouter(prefix='/v1')
+        v1 = APIRouter(prefix='/v1', dependencies=[Depends(self._authenticate)])
         self._bind_v1(v1)
         self._api.include_router(v1)
 
