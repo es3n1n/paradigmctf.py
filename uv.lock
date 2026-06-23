@@ -841,6 +841,7 @@ dev = [
     { name = "cheb3" },
     { name = "docker-stubs" },
     { name = "mypy" },
+    { name = "py-solc-x" },
     { name = "pytest" },
     { name = "ruff" },
     { name = "types-pyyaml" },
@@ -866,6 +867,7 @@ dev = [
     { name = "cheb3", git = "https://github.com/YanhuiJessica/cheb3.git?rev=458f63212a921b831b35175a5000b27228fb42e5" },
     { name = "docker-stubs", git = "https://github.com/rdozier-work/docker-stubs.git?rev=13b1630f188feade7503ed7deb9f4267d2c9090c" },
     { name = "mypy", specifier = ">=1.17.0" },
+    { name = "py-solc-x", specifier = "==2.0.5" },
     { name = "pytest", specifier = ">=8.4.1" },
     { name = "ruff", specifier = ">=0.12.4" },
     { name = "types-pyyaml", specifier = ">=6.0.12.20250516" },
@@ -1027,15 +1029,15 @@ wheels = [
 
 [[package]]
 name = "py-solc-x"
-version = "2.0.4"
+version = "2.0.5"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "packaging" },
     { name = "requests" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/b9/72/92c6c96584cf9b1e7f1da50978d44910e7545ce0df646041ce683993ee18/py-solc-x-2.0.4.tar.gz", hash = "sha256:6f6f7f47c8520bde73679624568ec343db9baca6914212b371896fad8697deca", size = 77779, upload-time = "2025-05-30T22:50:48.908Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/34/8d/f30778d5f08387cc3f7576aedf4a1e6841caeb8d6d600bb070aa9480b689/py_solc_x-2.0.5.tar.gz", hash = "sha256:2d8440d2be8a5577137fb2313ee211b5b35f36c4c922f274192d34f401616e83", size = 78761, upload-time = "2025-12-10T20:27:51.141Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/97/3a/063e034e0b283933fc1b8359ba5982b5cb853520e32829f1d0e7881fe47c/py_solc_x-2.0.4-py3-none-any.whl", hash = "sha256:fe7baf788ed2f23b3c793c20661560cceca6f8a1de9d6d479fe3ea9c6c1b2a9e", size = 18560, upload-time = "2025-05-30T22:50:47.512Z" },
+    { url = "https://files.pythonhosted.org/packages/4e/37/60ccc88d918d8f1cd218e413fb6263afcde350dc259fb2ba413d9f7d1051/py_solc_x-2.0.5-py3-none-any.whl", hash = "sha256:d6c24b699a7db8f7bf731f32dcfe8c43d7ea9d181191b2a3b7cb5e60395dd449", size = 18750, upload-time = "2025-12-10T20:27:50.033Z" },
 ]
 
 [[package]]
