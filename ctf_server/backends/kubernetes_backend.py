@@ -29,6 +29,16 @@ if TYPE_CHECKING:
     from kubernetes.client.models import V1Pod
 
 
+_POD_SECURITY_CONTEXT = {
+    'seccompProfile': {'type': 'RuntimeDefault'},
+}
+_CONTAINER_SECURITY_CONTEXT = {
+    'allowPrivilegeEscalation': False,
+    'capabilities': {'drop': ['ALL']},
+    'seccompProfile': {'type': 'RuntimeDefault'},
+}
+
+
 class KubernetesBackend(Backend):
     def __init__(self, database: Database, kubeconfig: str) -> None:
         if kubeconfig == 'incluster':
@@ -60,6 +70,7 @@ class KubernetesBackend(Backend):
             'spec': {
                 'enableServiceLinks': False,
                 'automountServiceAccountToken': False,
+                'securityContext': _POD_SECURITY_CONTEXT,
                 'volumes': anvil_volumes,
                 'containers': anvil_containers + self.__get_daemon_containers(request),
             },
@@ -133,6 +144,7 @@ class KubernetesBackend(Backend):
                         }
                     ],
                     'env': [V1EnvVar(name=k, value=v) for k, v in format_anvil_env(anvil_args).items()],
+                    'securityContext': _CONTAINER_SECURITY_CONTEXT,
                 }
             )
 
@@ -149,6 +161,7 @@ class KubernetesBackend(Backend):
                         'value': args['instance_id'],
                     }
                 ],
+                'securityContext': _CONTAINER_SECURITY_CONTEXT,
             }
             for (daemon_id, daemon_args) in args.get('daemon_instances', {}).items()
         ]

@@ -1,5 +1,7 @@
+import asyncio
 import builtins
 import json
+import os
 from collections.abc import AsyncGenerator, Awaitable, Callable
 from contextlib import asynccontextmanager, suppress
 from dataclasses import dataclass
@@ -19,6 +21,9 @@ from .loaders import load_database
 from .types import InstanceInfo
 from .utils import worker
 
+
+MAX_BATCH_SIZE = int(os.getenv('ANVIL_PROXY_MAX_BATCH_SIZE', '100'))
+WS_RECV_TIMEOUT = float(os.getenv('ANVIL_PROXY_WS_RECV_TIMEOUT', '30'))
 
 ALLOWED_NAMESPACES = ['web3', 'eth', 'net']
 DISALLOWED_METHODS = [
@@ -136,6 +141,8 @@ async def proxy_batch(
 
 async def proxy_request(anvil_instance: InstanceInfo, body: list | dict) -> dict | list | None:
     if isinstance(body, list):
+        if len(body) > MAX_BATCH_SIZE:
+            return jsonrpc_fail(None, -32600, f'batch too large (max {MAX_BATCH_SIZE})')
 
         async def _send_http(reqs: list[dict]) -> dict | list | None:
             return await send_request(anvil_instance, None, reqs)
@@ -171,6 +178,28 @@ async def http_rpc(external_id: str, anvil_id: str, request: Request) -> dict | 
     return await proxy_request(anvil_instance, body)
 
 
+async def _handle_ws_batch(
+    batch: list, anvil_instance: InstanceInfo, client_ws: WebSocket, remote_ws: websockets.ClientConnection
+) -> None:
+    if len(batch) > MAX_BATCH_SIZE:
+        await client_ws.send_json(jsonrpc_fail(None, -32600, f'batch too large (max {MAX_BATCH_SIZE})'))
+        return
+
+    async def _send_ws(reqs: list[dict]) -> dict | list | None:
+        await remote_ws.send(json.dumps(reqs))
+        responses: list[dict] = []
+        while len(responses) < len(reqs):
+            raw_resp = await asyncio.wait_for(remote_ws.recv(), WS_RECV_TIMEOUT)
+            parsed = json.loads(raw_resp if isinstance(raw_resp, str) else raw_resp.decode())
+            if isinstance(parsed, list):
+                responses.extend(parsed)
+            elif isinstance(parsed, dict):
+                responses.append(parsed)
+        return responses
+
+    await client_ws.send_json(await proxy_batch(batch, anvil_instance, _send_ws))
+
+
 async def _handle_ws_message(
     message_data: str, anvil_instance: InstanceInfo, client_ws: WebSocket, remote_ws: websockets.ClientConnection
 ) -> None:
@@ -181,20 +210,7 @@ async def _handle_ws_message(
         return
 
     if isinstance(json_msg, list):
-
-        async def _send_ws(reqs: list[dict]) -> dict | list | None:
-            await remote_ws.send(json.dumps(reqs))
-            responses: list[dict] = []
-            while len(responses) < len(reqs):
-                raw_resp = await remote_ws.recv()
-                parsed = json.loads(raw_resp if isinstance(raw_resp, str) else raw_resp.decode())
-                if isinstance(parsed, list):
-                    responses.extend(parsed)
-                elif isinstance(parsed, dict):
-                    responses.append(parsed)
-            return responses
-
-        await client_ws.send_json(await proxy_batch(json_msg, anvil_instance, _send_ws))
+        await _handle_ws_batch(json_msg, anvil_instance, client_ws, remote_ws)
         return
 
     if not isinstance(json_msg, dict):
@@ -206,7 +222,7 @@ async def _handle_ws_message(
         return
 
     await remote_ws.send(message_data)
-    response = await remote_ws.recv()
+    response = await asyncio.wait_for(remote_ws.recv(), WS_RECV_TIMEOUT)
 
     if isinstance(response, str):
         response = response.encode()
@@ -241,7 +257,7 @@ async def ws_rpc(external_id: str, anvil_id: str, client_ws: WebSocket) -> None:
 
                 message_data: str = raw_message.get('text') or raw_message.get('bytes', b'').decode('utf-8')
                 await _handle_ws_message(message_data, anvil_instance, client_ws, remote_ws)
-    except (WebSocketDisconnect, WebSocketException, KeyError):  # KeyError for empty messages
+    except (WebSocketDisconnect, WebSocketException, KeyError, TimeoutError):  # KeyError for empty messages
         # fixme(es3n1n, 28.03.24): ugly exception handling
         with suppress(builtins.BaseException):
             await remote_ws.close()
