@@ -20,15 +20,16 @@ RUN true && \
     foundryup && \
     true
 
+# TODO(es3n1n): huff2?
 # Install Huff
-ENV HUFF_DIR=/opt/huff
+# ENV HUFF_DIR=/opt/huff
 
-ENV PATH=${HUFF_DIR}/bin/:${PATH}
+# ENV PATH=${HUFF_DIR}/bin/:${PATH}
 
-RUN true && \
-    curl -L http://get.huff.sh | bash && \
-    huffup && \
-    true
+# RUN true && \
+#     curl -L http://get.huff.sh | bash && \
+#     huffup && \
+#     true
 
 # Install uv
 RUN curl -LsSf https://astral.sh/uv/install.sh | sh
